@@ -3,13 +3,14 @@
 
 #include <string.h>
 #include <iostream>
+#include <vector>
 
 class InputFunctions
 {
 public:
     InputFunctions();
 
-    void inputCommand();
+    std::vector<std::string> inputCommand();
     void parseCommand(std::string command);
 };
 

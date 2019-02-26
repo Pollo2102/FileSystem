@@ -1,47 +1,41 @@
 #include <cstdio>
 #include "InputFunctions.h"
-#include <vector>
 
 InputFunctions::InputFunctions()
 {
 
 }
 
-void InputFunctions::inputCommand()
+std::vector<std::string> InputFunctions::inputCommand()
 {
     char *commandString = new char;
     
     std::vector<std::string> args;
+    
+    std::cout << "Type in your command: \n";
+    
+    std::cin.getline(commandString, 200);
 
-    while (true/* !strcmp(commandString, "exit") */)
+    char *argumentsTemp = new char;
+    argumentsTemp = strtok(commandString, " ");
+    printf("%s\n", argumentsTemp);
+
+    std::string tempString;
+
+    while (argumentsTemp != nullptr)
     {
-        std::cout << "Ingrese su comando: \n";
-        
-        std::cin.getline(commandString, 100);
+        tempString = argumentsTemp;
+        std::cout << tempString + " ";
+        argumentsTemp = strtok(nullptr, " ");
 
-        char *argumentsTemp = new char;
-        argumentsTemp = strtok(commandString, " ");
-        printf("%s\n", argumentsTemp);
-
-        std::string tempString;
-
-        while (argumentsTemp != NULL)
-        {
-            tempString = argumentsTemp;
-            std::cout << tempString + " ";
-            argumentsTemp = strtok(NULL, " ");
-
-            args.push_back(tempString);
-            tempString.clear();
-        }
-
-        
-        commandString[0] = 0;
-        
-        delete argumentsTemp;
+        args.push_back(tempString);
+        tempString.clear();
     }
-
+    
+    delete argumentsTemp;
     delete commandString;
+
+    return args;
 }
 
 
