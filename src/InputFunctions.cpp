@@ -3,17 +3,16 @@
 
 InputFunctions::InputFunctions()
 {
-
 }
 
 std::vector<std::string> InputFunctions::inputCommand()
 {
     char *commandString = new char;
-    
+
     std::vector<std::string> args;
-    
+
     std::cout << "Type in your command: \n";
-    
+
     std::cin.getline(commandString, 200);
 
     char *argumentsTemp = new char;
@@ -31,15 +30,13 @@ std::vector<std::string> InputFunctions::inputCommand()
         args.push_back(tempString);
         tempString.clear();
     }
-    
+
     delete argumentsTemp;
     delete commandString;
 
     return args;
 }
 
-
 void InputFunctions::parseCommand(std::string command)
 {
-    
 }

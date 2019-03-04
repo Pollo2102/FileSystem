@@ -2,6 +2,7 @@
 #define FILESYSTEM_H
 
 #include "DataBlock_Sructure.h"
+#include <string>
 
 #define DATABASE_SIZE 500000000 // Fixes-size = 500MB
 
@@ -9,11 +10,14 @@ class FileSystem
 {
 public:
     FileSystem();
+    ~FileSystem();
 
     void createDatabase();
     void dropDatabase();
+    void loadDatabase();
+    
     void createTable();
-    void dropTable(char *tableName);
+    void dropTable();
 
     void insertData();
     void deleteData();
@@ -22,7 +26,10 @@ public:
 
     // Auxiliary Functions
 
-    
+    long getEmptyIndexPosition();
+    std::string setTableName();
+    void setTableColumnNames(u_int32_t tableColumns[], char tableNames[][400]);
+    uint64_t getEmptyDataBlockPosition();
 
 };
 
