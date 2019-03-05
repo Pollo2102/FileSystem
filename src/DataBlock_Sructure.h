@@ -29,7 +29,7 @@ struct tableIndex
 	char tableName[64];			// Name of the table
 	uint64_t size;				// Table size
 	uint64_t tablePosition;		// Position of Table in bytes
-	uint32_t tableColumns[100]; // Byte 0 is the type of data. Bytes 1-2 represent the length of the data, if it is of type char[]
+	uint32_t tableColumns[100]; // Byte 0 indicates if the table column is being used. Byte 1 is the type of data. Bytes 2-3 represent the length of the data, if it is of type char[]
 	char tableNames[100][400];  //100 names for columns of size 400
 };
 
