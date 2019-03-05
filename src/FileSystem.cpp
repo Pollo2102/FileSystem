@@ -15,9 +15,9 @@
 
 #define DB_DIR "../DataBases/"
 
-static superBlock *loadedSuperBlock = nullptr;
-static blockGroupDescriptorTable *loadedBGDT = nullptr;
-static std::fstream *loadedDB = new std::fstream;
+static superBlock loadedSuperBlock;
+static blockGroupDescriptorTable loadedBGDT;
+static std::fstream loadedDB;
 static std::string loadedDBName;
 
 FileSystem::FileSystem()
@@ -26,9 +26,6 @@ FileSystem::FileSystem()
 
 FileSystem::~FileSystem()
 {
-    delete loadedSuperBlock;
-    delete loadedBGDT;
-    delete loadedDB;
 }
 
 //===============================================================
@@ -94,7 +91,6 @@ void FileSystem::createDatabase()
             dataBlockBitmap.at(i) |= (0 << j);
         }
     }
-    std::cout << "Error in generating the dataBlock Bitmap\n";
 
     SB.indexCount = 100;
     SB.blocks_count = numberOfDataBlocks;
@@ -147,7 +143,6 @@ void FileSystem::createDatabase()
         file.write(reinterpret_cast<const char *>(&TI), sizeof(tableIndex));
     }
 
-    std::cout << "Error in generating the dataBlocks\n";
     for (size_t i = 0; i < numberOfDataBlocks; i++)
     {
         for (int j = 0; j < dataBlocks.size(); j++)
@@ -189,18 +184,20 @@ void FileSystem::loadDatabase()
     DBName.insert(0, DB_DIR);
     DBName += ".db";
 
-    loadedDB->open(DBName, std::ios::in);
+    loadedDB.open(DBName, std::ios::in | std::ios::binary);
 
-    if (loadedDB->fail())
+    if (loadedDB.fail())
     {
         std::cout << "Database loading error!\n";
         return;
     }
 
-    loadedDB->read(reinterpret_cast<char *>(&loadedSuperBlock), sizeof(superBlock));
-    loadedDB->read(reinterpret_cast<char *>(&loadedBGDT), sizeof(blockGroupDescriptorTable));
-    loadedDB->close();
+    loadedDB.seekg(0);
+    loadedDB.read(reinterpret_cast<char *>(&loadedSuperBlock), sizeof(superBlock));
+    loadedDB.read(reinterpret_cast<char *>(&loadedBGDT), sizeof(blockGroupDescriptorTable));
+    loadedDB.close();
     loadedDBName = DBName;
+    std::cout << "Database loaded succesfully\n";
 }
 
 //===============================================================
@@ -209,9 +206,9 @@ void FileSystem::loadDatabase()
 
 void FileSystem::createTable()
 {
-    if (loadedSuperBlock != nullptr)
+    if (!loadedDBName.empty())
     {
-        try 
+        try
         {
             long indexPosition = getEmptyIndexPosition();
             tableIndex tmpTI;
@@ -220,16 +217,15 @@ void FileSystem::createTable()
 
             setTableColumnNames(tmpTI.tableColumns, tmpTI.tableNames);
             tmpTI.tablePosition = getEmptyDataBlockPosition();
-            tmpTI.size = loadedSuperBlock->dataBlockSize;
+            tmpTI.size = loadedSuperBlock.dataBlockSize;
 
-            loadedDB->open(loadedDBName, std::ios::out | std::ios::binary);
-            loadedDB->seekp(indexPosition);
-            loadedDB->write(reinterpret_cast<const char *>(&tmpTI), sizeof(tableIndex));
-            loadedDB->close();
+            loadedDB.open(loadedDBName, std::ios::out | std::ios::binary);
+            loadedDB.seekp(indexPosition);
+            loadedDB.write(reinterpret_cast<const char *>(&tmpTI), sizeof(tableIndex));
+            loadedDB.close();
             std::cout << "Data Table created successfully\n";
-
         }
-        catch(std::exception e)
+        catch (std::exception e)
         {
             std::cout << "Error during the process of creating the table.\n";
             std::cout << "Exception Specifications: " << e.what() << std::endl;
@@ -244,29 +240,30 @@ void FileSystem::dropTable()
     std::cin >> tempTableName;
     tableIndex tempIndex;
 
-    loadedDB->open(loadedDBName, std::ios::in | std::ios::binary);
-    loadedDB->seekg(loadedBGDT->first_index);
-    loadedDB->read(reinterpret_cast<char *>(&tempIndex), sizeof(tableIndex));
+    loadedDB.open(loadedDBName, std::ios::in | std::ios::binary);
+    loadedDB.seekg(loadedBGDT.first_index);
+    loadedDB.read(reinterpret_cast<char *>(&tempIndex), sizeof(tableIndex));
 
     uint8_t tableCount = 1;
 
-    while(tableCount != 100)
+    while (tableCount != 100)
     {
         if (tempIndex.tableName == tempTableName)
         {
-            long tempIndexPosition = (uint64_t)loadedDB->tellg() - (uint64_t)sizeof(tableIndex);
+            long tempIndexPosition = (uint64_t)loadedDB.tellg() - (uint64_t)sizeof(tableIndex);
             tempIndex.usedTableSpace = 0;
-            loadedDB->close();
-            loadedDB->open(loadedDBName, std::ios::out | std::ios::binary);
-            loadedDB->seekp(tempIndexPosition);
-            loadedDB->write(reinterpret_cast<const char *>(&tempIndex), sizeof(tableIndex));
-            loadedDB->close();
+            deleteDatablockPointers(tempIndex.tablePosition);
+            loadedDB.close();
+            loadedDB.open(loadedDBName, std::ios::out | std::ios::binary);
+            loadedDB.seekp(tempIndexPosition);
+            loadedDB.write(reinterpret_cast<const char *>(&tempIndex), sizeof(tableIndex));
+            loadedDB.close();
             std::cout << "Data deleted successfully\n";
             return;
         }
-        loadedDB->read(reinterpret_cast<char *>(&tempIndex), sizeof(tableIndex));
+        loadedDB.read(reinterpret_cast<char *>(&tempIndex), sizeof(tableIndex));
     }
-    loadedDB->close();
+    loadedDB.close();
     std::cout << "Table not found\n";
 }
 
@@ -296,22 +293,22 @@ void FileSystem::selectData()
 
 long FileSystem::getEmptyIndexPosition()
 {
-    if (loadedBGDT != nullptr)
+    if (!loadedDBName.empty())
     {
-        loadedDB->seekg(loadedBGDT->first_index);
-        long indexPos = loadedDB->tellg();
+        loadedDB.seekg(loadedBGDT.first_index);
+        long indexPos = loadedDB.tellg();
         tableIndex tempTI;
-        while (!loadedDB->eof())
+        while (!loadedDB.eof())
         {
-            loadedDB->read(reinterpret_cast<char *>(&tempTI), sizeof(tableIndex));
+            loadedDB.read(reinterpret_cast<char *>(&tempTI), sizeof(tableIndex));
             if (tempTI.usedTableSpace == true)
             {
-                loadedDB->close();
+                loadedDB.close();
                 return indexPos;
             }
-            indexPos = loadedDB->tellg();
+            indexPos = loadedDB.tellg();
         }
-        loadedDB->close();
+        loadedDB.close();
     }
 }
 
@@ -360,7 +357,7 @@ void FileSystem::setTableColumnNames(uint32_t tableColumns[], char tableNames[][
 
         std::string columnName;
 
-        std::cout << "Type the name of the column: \n";
+        std::cout << "\nType the name of the column: \n\n";
         std::cin >> columnName;
 
         tableColumns[columnCounter] = dataType;
@@ -373,18 +370,18 @@ uint64_t FileSystem::getEmptyDataBlockPosition()
 {
     uint64_t dataBlockPosition;
 
-    loadedDB->open(loadedDBName, std::ios::in | std::ios::binary);
-    loadedDB->seekg(loadedBGDT->block_bitmap);
+    loadedDB.open(loadedDBName, std::ios::in | std::ios::binary);
+    loadedDB.seekg(loadedBGDT.block_bitmap);
 
-    std::vector<char> dataBlocks(ceil((float)loadedSuperBlock->blocks_count / (float)8));
+    std::vector<char> dataBlocks(ceil((float)loadedSuperBlock.blocks_count / (float)8));
 
     for (size_t i = 0; i < dataBlocks.size(); i++)
     {
-        loadedDB->read(reinterpret_cast<char *>(dataBlocks.at(i)), sizeof(char));
+        loadedDB.read(reinterpret_cast<char *>(&dataBlocks.at(i)), sizeof(char));
     }
 
-    loadedDB->close();
-    loadedDB->open(loadedDBName, std::ios::out | std::ios::binary);
+    loadedDB.close();
+    loadedDB.open(loadedDBName, std::ios::out | std::ios::binary);
 
     for (size_t i = 0; i < dataBlocks.size(); i++)
     {
@@ -393,16 +390,61 @@ uint64_t FileSystem::getEmptyDataBlockPosition()
             if ((dataBlocks.at(i) & (1 << j)) == 0)
             {
                 dataBlocks.at(i) |= (1 << j);
-                loadedDB->seekg(loadedBGDT->block_bitmap);
+                loadedDB.seekg(loadedBGDT.block_bitmap);
                 for (size_t i = 0; i < dataBlocks.size(); i++)
                 {
-                    loadedDB->write(reinterpret_cast<const char *>(&dataBlocks.at(i)), sizeof(char));
+                    loadedDB.write(reinterpret_cast<const char *>(&dataBlocks.at(i)), sizeof(char));
                 }
-                loadedDB->close();
+                loadedDB.close();
                 dataBlockPosition = j + (i * 8);
-                dataBlockPosition = (loadedBGDT->firstDataBlock) + (dataBlockPosition * loadedSuperBlock->dataBlockSize);
+                dataBlockPosition = (loadedBGDT.firstDataBlock) + (dataBlockPosition * loadedSuperBlock.dataBlockSize);
                 return dataBlockPosition;
             }
         }
+    }
+    std::cout << "No empty datablocks found.\n\n";
+    return 0;
+}
+
+void FileSystem::deleteDatablockPointers(uint32_t datablockPointer)
+{
+    std::vector<char> dataBlock(loadedSuperBlock.dataBlockSize);
+    loadedDB.open(loadedDBName, std::ios::in | std::ios::out | std::ios::binary);
+    loadedDB.seekg(loadedBGDT.firstDataBlock + (datablockPointer * loadedSuperBlock.dataBlockSize));
+
+    for (size_t i = 0; i < loadedSuperBlock.dataBlockSize; i++)
+    {
+        loadedDB.read(reinterpret_cast<char *>(&dataBlock.at(i)), sizeof(char));
+    }
+
+    uint32_t tempPointer = 0;
+
+    tempPointer |= (dataBlock.at(loadedSuperBlock.blocks_count - 4));
+    tempPointer |= (dataBlock.at(loadedSuperBlock.blocks_count - 3) << 1);
+    tempPointer |= (dataBlock.at(loadedSuperBlock.blocks_count - 2) << 2);
+    tempPointer |= (dataBlock.at(loadedSuperBlock.blocks_count - 1) << 3);
+
+    if (tempPointer == 0)
+    {
+        std::cout << "Delete operation finished.\n";
+        loadedDB.close();
+        return;
+    }
+    else
+    {
+        //escribir 0 en el datablock pointer
+        dataBlock.at(loadedSuperBlock.blocks_count - 4) = 0;
+        dataBlock.at(loadedSuperBlock.blocks_count - 3) = 0;
+        dataBlock.at(loadedSuperBlock.blocks_count - 2) = 0;
+        dataBlock.at(loadedSuperBlock.blocks_count - 1) = 0;
+        loadedDB.seekg(loadedBGDT.firstDataBlock + (datablockPointer * loadedSuperBlock.dataBlockSize));
+
+        for (size_t i = 0; i < loadedSuperBlock.dataBlockSize; i++)
+        {
+            loadedDB.write(reinterpret_cast<const char *>(&dataBlock.at(i)), sizeof(char));
+        }
+
+        loadedDB.close();
+        deleteDatablockPointers(tempPointer);
     }
 }

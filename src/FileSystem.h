@@ -3,6 +3,7 @@
 
 #include "DataBlock_Sructure.h"
 #include <string>
+#include <vector>
 
 #define DATABASE_SIZE 500000000 // Fixes-size = 500MB
 
@@ -30,6 +31,7 @@ public:
     std::string setTableName();
     void setTableColumnNames(u_int32_t tableColumns[], char tableNames[][400]);
     uint64_t getEmptyDataBlockPosition();
+    void deleteDatablockPointers(uint32_t dataBlockPosition);
 
 };
 
