@@ -11,7 +11,7 @@
 
 #include <vector>
 
-#include <boost/multiprecision/cpp_int.hpp>
+//#include <boost/multiprecision/cpp_int.hpp>
 
 #define DB_DIR "../DataBases/"
 
@@ -162,13 +162,14 @@ void FileSystem::dropDatabase()
     printf("Type in the name of the database you wish to delete: \n");
     std::cin >> DBName;
 
-    file += (DBName + ".dat");
+    file += (DBName + ".db");
 
     const char *filename = file.c_str();
 
-    remove(filename);
-
-    std::cout << "DataBase \"" + DBName + "\" deleted succesfully!\n";
+    if (!remove(filename))
+        std::cout << "Database \"" + DBName + "\" deleted succesfully!\n";
+    else
+        std::cout << "Database \"" + DBName + "\" was not found!\n";
 
     delete filename;
 }
@@ -211,6 +212,9 @@ void FileSystem::createTable()
         try
         {
             long indexPosition = getEmptyIndexPosition();
+            if (indexPosition == 0)
+                return;
+                
             tableIndex tmpTI;
 
             std::string tableName = setTableName();
@@ -310,6 +314,8 @@ long FileSystem::getEmptyIndexPosition()
         }
         loadedDB.close();
     }
+    std::cout << "No Database is loaded!!\n\n";
+    return 0;
 }
 
 std::string FileSystem::setTableName()
