@@ -214,7 +214,7 @@ void FileSystem::createTable()
             long indexPosition = getEmptyIndexPosition();
             if (indexPosition == 0)
                 return;
-                
+
             tableIndex tmpTI;
 
             std::string tableName = setTableName();
@@ -277,6 +277,70 @@ void FileSystem::dropTable()
 
 void FileSystem::insertData()
 {
+    std::string tableName;
+    std::cout << "Type the name of the table you wish to insert into.\n";
+    std::cin >> tableName;
+
+    uint64_t tablePosition = findTable(tableName);
+    tableIndex TI;
+
+    loadedDB.open(loadedDBName, std::ios::in | std::ios::binary);
+
+    if (!loadedDB)
+    {
+        std::cout << "Database could not be found!\n\n";
+        return;
+    }
+
+    loadedDB.read(reinterpret_cast<char *>(&TI), sizeof(tableIndex));
+    loadedDB.close();
+
+    std::vector<char> data;
+
+    int valor1;
+    double valor2;
+
+    for (uint8_t i = 0; i < 100; i++)
+    {
+        if (TI.tableColumns[i] == 0)
+            break;
+
+        if ((TI.tableColumns[i] & 0b00000111) == 0b00000001) // int
+        {
+            std::cout << "Ingrese el valor de: " << TI.tableNames[i] << std::endl;
+            std::cin >> valor1;
+
+            for (size_t j = 0; j < sizeof(int); j++)
+            {
+                data.push_back(valor1 << j);
+            }
+        }
+        else if ((TI.tableColumns[i] & 0b00000111) == 0b00000011) // double
+        {
+            std::cout << "Ingrese el valor de: " << TI.tableNames[i] << std::endl;
+            std::cin >> valor1;
+
+            for (size_t j = 0; j < sizeof(double); j++)
+            {
+                data.push_back(valor1 << j);
+            }
+        }
+        else if ((TI.tableColumns[i] & 0b00000111) == 0b00000101) // char
+        {
+            std::string valor3;
+            std::cout << "Ingrese el valor de: " << TI.tableNames[i] << std::endl;
+            std::cin >> valor3;
+
+            for (uint32_t i = 0; i < (TI.tableColumns[i] >> 3); i++)
+            {
+                if (i < data.size())
+                    data.push_back(valor3.at(i));
+                data.push_back(0);
+            }
+        }
+
+        writeDataIntoTable(data, tablePosition, data.size(), 0, false);
+    }
 }
 
 void FileSystem::deleteData()
@@ -452,5 +516,131 @@ void FileSystem::deleteDatablockPointers(uint32_t datablockPointer)
 
         loadedDB.close();
         deleteDatablockPointers(tempPointer);
+    }
+}
+
+uint64_t FileSystem::findTable(std::string tableName)
+{
+    loadedDB.open(loadedDBName, std::ios::in | std::ios::binary);
+
+    if (!loadedDB)
+    {
+        std::cout << "Error loading the database file.\n";
+        return 0;
+    }
+
+    tableIndex TI;
+    uint64_t tablePosition;
+
+    loadedDB.seekg(loadedBGDT.first_index);
+    tablePosition = loadedDB.tellg();
+    loadedDB.read(reinterpret_cast<char *>(&TI), sizeof(tableIndex));
+
+    for (size_t i = 0; i < 100; i++)
+    {
+        if (strcmp(TI.tableName, tableName.c_str()))
+        {
+            loadedDB.close();
+            return tablePosition;
+        }
+        else
+        {
+            loadedDB.read(reinterpret_cast<char *>(&TI), sizeof(tableIndex));
+            tablePosition = loadedDB.tellg();
+        }
+    }
+    std::cout << "Table was not found!\n\n";
+    loadedDB.close();
+    return 0;
+}
+
+void FileSystem::writeDataIntoTable(std::vector<char> &tableData, uint64_t tablePosition, uint16_t dataSize, uint16_t readSpaceLeft, bool writePending)
+{
+    loadedDB.open(loadedDBName, std::ios::out | std::ios::in | std::ios::binary);
+
+    if (!loadedDB)
+    {
+        std::cout << "Error while trying to access the database file.\n\n";
+        return;
+    }
+    
+    uint64_t tablePos = tablePosition;
+    loadedDB.seekp(tablePosition);
+    std::vector<char> temp(tableData.size());    
+    uint32_t spaceLeft = loadedSuperBlock.dataBlockSize - 4;
+    uint8_t usedReg = 0;
+
+    if (readSpaceLeft != 0)
+    {
+        loadedDB.seekp(readSpaceLeft, std::ios::cur);
+        spaceLeft -= readSpaceLeft;
+    }
+
+    while (true)
+    {
+        if (tableData.size() < spaceLeft)
+        {
+            if (!writePending)
+                loadedDB.read(reinterpret_cast<char *>(&usedReg), sizeof(char));
+            if (!usedReg)
+            {
+                if (!writePending)
+                {
+                    usedReg = 1;
+                    loadedDB.seekp(-1, std::ios::cur);
+                    loadedDB.write(reinterpret_cast<const char *>(&usedReg), sizeof(char));
+                }
+                for(size_t i = 0; i < tableData.size(); i++)
+                {
+                    loadedDB.write(reinterpret_cast<const char *>(&tableData.at(i)), sizeof(char));
+                }
+                std::cout << "Data written into the table successfully;\n\n";
+                loadedDB.close();
+                return;
+            }
+            else
+            {
+                loadedDB.seekp(dataSize, std::ios::cur);
+                spaceLeft -= (dataSize + 1);
+            }
+        }
+        else
+        {
+            if (!writePending)
+            {
+                loadedDB.read(reinterpret_cast<char *>(&usedReg), sizeof(char));
+                spaceLeft -= 1;
+            }
+            if (!usedReg)
+            {
+                if (spaceLeft != 0)
+                {
+                    for(size_t i = 0; i < spaceLeft; i++)
+                    {
+                        loadedDB.write(reinterpret_cast<const char *>(&tableData.at(i)), sizeof(char));
+                        spaceLeft--;
+                    }
+                    for(size_t i = 0; i < spaceLeft; i++)
+                    {
+                        tableData.erase(tableData.begin());
+                    }
+                }
+                uint64_t newPosition = getEmptyDataBlockPosition();
+                uint32_t writePosition = (newPosition - loadedBGDT.firstDataBlock) / loadedSuperBlock.dataBlockSize;
+                loadedDB.write(reinterpret_cast<const char *>(&writePosition), sizeof(uint32_t));
+                loadedDB.close();
+                writeDataIntoTable(tableData, newPosition, tableData.size(), 0, true);
+            }
+            else
+            {
+                uint16_t rSpaceLeft = tableData.size() - spaceLeft;
+                loadedDB.seekp(spaceLeft, std::ios::cur);
+                uint32_t readAddress;
+                loadedDB.read(reinterpret_cast<char *>(&readAddress), sizeof(uint32_t));
+                uint64_t searchAddress = loadedBGDT.firstDataBlock + (readAddress * loadedSuperBlock.dataBlockSize);
+                loadedDB.close();
+                writeDataIntoTable(tableData, searchAddress, tableData.size(), rSpaceLeft, 0);
+            }
+        }        
     }
 }

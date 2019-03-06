@@ -32,6 +32,8 @@ public:
     void setTableColumnNames(u_int32_t tableColumns[], char tableNames[][400]);
     uint64_t getEmptyDataBlockPosition();
     void deleteDatablockPointers(uint32_t dataBlockPosition);
+    uint64_t findTable(std::string tableName);
+    void writeDataIntoTable(std::vector<char> &tableData, uint64_t tablePosition, uint16_t dataSize, uint16_t readSpaceLeft, bool writePending);
 
 };
 
