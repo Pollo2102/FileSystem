@@ -35,6 +35,8 @@ public:
     uint64_t findTable(std::string tableName);
     void writeDataIntoTable(std::vector<char> &tableData, uint64_t tablePosition, uint16_t dataSize, uint16_t readSpaceLeft, bool writePending);
 
+    void mainMenu();
+
 };
 
 

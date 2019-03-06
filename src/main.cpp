@@ -6,10 +6,7 @@ int main(int argc, char const *argv[])
 {
     FileSystem customFS;
 
-    customFS.createDatabase();
-    customFS.dropDatabase();
-    /* customFS.loadDatabase();
-    customFS.createTable(); */
+    customFS.mainMenu();
 
     return 0;
 }

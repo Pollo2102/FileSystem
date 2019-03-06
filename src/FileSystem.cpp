@@ -219,15 +219,16 @@ void FileSystem::createTable()
 
             std::string tableName = setTableName();
 
+            strcpy(tmpTI.tableName, tableName.c_str());
             setTableColumnNames(tmpTI.tableColumns, tmpTI.tableNames);
-            tmpTI.tablePosition = getEmptyDataBlockPosition();
+            tmpTI.tablePosition = getEmptyDataBlockPosition();//check
             tmpTI.size = loadedSuperBlock.dataBlockSize;
 
-            loadedDB.open(loadedDBName, std::ios::out | std::ios::binary);
+            loadedDB.open(loadedDBName, std::ios::in | std::ios::out | std::ios::binary | std::ios::ate);
             loadedDB.seekp(indexPosition);
             loadedDB.write(reinterpret_cast<const char *>(&tmpTI), sizeof(tableIndex));
             loadedDB.close();
-            std::cout << "Data Table created successfully\n";
+            std::cout << "Data Table created successfully\n\n\n";
         }
         catch (std::exception e)
         {
@@ -235,11 +236,16 @@ void FileSystem::createTable()
             std::cout << "Exception Specifications: " << e.what() << std::endl;
         }
     }
+    else
+    {
+        std::cout << "Database not loaded\n\n";
+    }
+    
 }
 
 void FileSystem::dropTable()
 {
-    char tempTableName[64];
+    char tempTableName[64] = {0};    
     std::cout << "Type the name of the table you wish to delete.\n";
     std::cin >> tempTableName;
     tableIndex tempIndex;
@@ -252,13 +258,13 @@ void FileSystem::dropTable()
 
     while (tableCount != 100)
     {
-        if (tempIndex.tableName == tempTableName)
+        if ((!strcmp(tempIndex.tableName, tempTableName)) && (tempIndex.usedTableSpace == true))
         {
             long tempIndexPosition = (uint64_t)loadedDB.tellg() - (uint64_t)sizeof(tableIndex);
             tempIndex.usedTableSpace = 0;
             deleteDatablockPointers(tempIndex.tablePosition);
             loadedDB.close();
-            loadedDB.open(loadedDBName, std::ios::out | std::ios::binary);
+            loadedDB.open(loadedDBName, std::ios::in | std::ios::out | std::ios::binary | std::ios::ate);
             loadedDB.seekp(tempIndexPosition);
             loadedDB.write(reinterpret_cast<const char *>(&tempIndex), sizeof(tableIndex));
             loadedDB.close();
@@ -266,6 +272,7 @@ void FileSystem::dropTable()
             return;
         }
         loadedDB.read(reinterpret_cast<char *>(&tempIndex), sizeof(tableIndex));
+        tableCount++;
     }
     loadedDB.close();
     std::cout << "Table not found\n";
@@ -284,11 +291,17 @@ void FileSystem::insertData()
     uint64_t tablePosition = findTable(tableName);
     tableIndex TI;
 
+    if (tablePosition == 0)
+    {
+        std::cout << "Data table could not be found\n\n";
+        return;
+    }
+
     loadedDB.open(loadedDBName, std::ios::in | std::ios::binary);
 
     if (!loadedDB)
     {
-        std::cout << "Database could not be found!\n\n";
+        std::cout << "Database file could not be found!\n\n";
         return;
     }
 
@@ -307,7 +320,7 @@ void FileSystem::insertData()
 
         if ((TI.tableColumns[i] & 0b00000111) == 0b00000001) // int
         {
-            std::cout << "Ingrese el valor de: " << TI.tableNames[i] << std::endl;
+            std::cout << "Type in the value of: " << TI.tableNames[i] << std::endl;
             std::cin >> valor1;
 
             for (size_t j = 0; j < sizeof(int); j++)
@@ -317,7 +330,7 @@ void FileSystem::insertData()
         }
         else if ((TI.tableColumns[i] & 0b00000111) == 0b00000011) // double
         {
-            std::cout << "Ingrese el valor de: " << TI.tableNames[i] << std::endl;
+            std::cout << "Type in the value of: " << TI.tableNames[i] << std::endl;
             std::cin >> valor1;
 
             for (size_t j = 0; j < sizeof(double); j++)
@@ -328,7 +341,7 @@ void FileSystem::insertData()
         else if ((TI.tableColumns[i] & 0b00000111) == 0b00000101) // char
         {
             std::string valor3;
-            std::cout << "Ingrese el valor de: " << TI.tableNames[i] << std::endl;
+            std::cout << "Type in the value of: " << TI.tableNames[i] << std::endl;
             std::cin >> valor3;
 
             for (uint32_t i = 0; i < (TI.tableColumns[i] >> 3); i++)
@@ -345,14 +358,86 @@ void FileSystem::insertData()
 
 void FileSystem::deleteData()
 {
+    std::cout << "Not yet implemented.\n\n\n";
 }
 
 void FileSystem::updateData()
 {
+    std::cout << "Not yet implemented.\n\n\n";   
 }
 
 void FileSystem::selectData()
 {
+}
+
+void FileSystem::mainMenu()
+{
+    int option;
+
+    while (true)
+    {
+        std::cout << "---------------------------Database File System----------------------------------\n\n";
+        std::cout << "0 - Create Database\n";
+        std::cout << "1 - Drop Database\n";
+        std::cout << "2 - Load Database\n";
+        std::cout << "3 - Create Table\n";
+        std::cout << "4 - Drop Table\n";
+        std::cout << "5 - Insert Data\n";
+        std::cout << "6 - Delete Data\n";
+        std::cout << "7 - Update Data\n";
+        std::cout << "8 - Select Data\n";
+        std::cout << "9 - Exit\n\n";
+        std::cout << "Type the number of the command you wish to execute: \n";
+        
+        std::cin >> option;
+
+        switch (option)
+        {
+            case 0:
+                createDatabase();
+                break;
+            
+            case 1:
+                dropDatabase();
+                break;
+
+            case 2:
+                loadDatabase();
+                break;
+
+            case 3:
+                createTable();
+                break;
+
+            case 4:
+                dropTable();
+                break;
+
+            case 5:
+                insertData();
+                break;
+
+            case 6:
+                deleteData();
+                break;
+
+            case 7:
+                updateData();
+                break;     
+
+            case 8:
+                selectData();
+                break;
+
+            case 9:
+                return;
+        
+            default:
+                std::cout << "Invalid command\n\n";
+                break;
+        }
+    }
+
 }
 
 //===============================================================
@@ -363,13 +448,14 @@ long FileSystem::getEmptyIndexPosition()
 {
     if (!loadedDBName.empty())
     {
+        loadedDB.open(loadedDBName, std::ios::in | std::ios::binary);
         loadedDB.seekg(loadedBGDT.first_index);
         long indexPos = loadedDB.tellg();
         tableIndex tempTI;
         while (!loadedDB.eof())
         {
             loadedDB.read(reinterpret_cast<char *>(&tempTI), sizeof(tableIndex));
-            if (tempTI.usedTableSpace == true)
+            if (tempTI.usedTableSpace == false)
             {
                 loadedDB.close();
                 return indexPos;
@@ -427,11 +513,13 @@ void FileSystem::setTableColumnNames(uint32_t tableColumns[], char tableNames[][
 
         std::string columnName;
 
-        std::cout << "\nType the name of the column: \n\n";
+        std::cout << "\nType the name of the column: \n";
         std::cin >> columnName;
+        std::cout << std::endl;
 
         tableColumns[columnCounter] = dataType;
         strcpy(tableNames[columnCounter], columnName.c_str());
+        columnCounter++;
     }
     std::cout << "Columns registered succesfully.\n";
 }
@@ -451,7 +539,7 @@ uint64_t FileSystem::getEmptyDataBlockPosition()
     }
 
     loadedDB.close();
-    loadedDB.open(loadedDBName, std::ios::out | std::ios::binary);
+    loadedDB.open(loadedDBName, std::ios::in | std::ios::out | std::ios::binary | std::ios::ate);
 
     for (size_t i = 0; i < dataBlocks.size(); i++)
     {
@@ -460,7 +548,7 @@ uint64_t FileSystem::getEmptyDataBlockPosition()
             if ((dataBlocks.at(i) & (1 << j)) == 0)
             {
                 dataBlocks.at(i) |= (1 << j);
-                loadedDB.seekg(loadedBGDT.block_bitmap);
+                loadedDB.seekp(loadedBGDT.block_bitmap);
                 for (size_t i = 0; i < dataBlocks.size(); i++)
                 {
                     loadedDB.write(reinterpret_cast<const char *>(&dataBlocks.at(i)), sizeof(char));
@@ -479,7 +567,7 @@ uint64_t FileSystem::getEmptyDataBlockPosition()
 void FileSystem::deleteDatablockPointers(uint32_t datablockPointer)
 {
     std::vector<char> dataBlock(loadedSuperBlock.dataBlockSize);
-    loadedDB.open(loadedDBName, std::ios::in | std::ios::out | std::ios::binary);
+    loadedDB.open(loadedDBName, std::ios::in | std::ios::out | std::ios::binary | std::ios::ate);
     loadedDB.seekg(loadedBGDT.firstDataBlock + (datablockPointer * loadedSuperBlock.dataBlockSize));
 
     for (size_t i = 0; i < loadedSuperBlock.dataBlockSize; i++)
@@ -531,6 +619,8 @@ uint64_t FileSystem::findTable(std::string tableName)
 
     tableIndex TI;
     uint64_t tablePosition;
+    char tableN[64] = {0};
+    strcpy(tableN, tableName.c_str());
 
     loadedDB.seekg(loadedBGDT.first_index);
     tablePosition = loadedDB.tellg();
@@ -538,7 +628,7 @@ uint64_t FileSystem::findTable(std::string tableName)
 
     for (size_t i = 0; i < 100; i++)
     {
-        if (strcmp(TI.tableName, tableName.c_str()))
+        if (!strcmp(TI.tableName, tableN))
         {
             loadedDB.close();
             return tablePosition;
@@ -556,7 +646,7 @@ uint64_t FileSystem::findTable(std::string tableName)
 
 void FileSystem::writeDataIntoTable(std::vector<char> &tableData, uint64_t tablePosition, uint16_t dataSize, uint16_t readSpaceLeft, bool writePending)
 {
-    loadedDB.open(loadedDBName, std::ios::out | std::ios::in | std::ios::binary);
+    loadedDB.open(loadedDBName, std::ios::out | std::ios::in | std::ios::binary | std::ios::ate);
 
     if (!loadedDB)
     {
