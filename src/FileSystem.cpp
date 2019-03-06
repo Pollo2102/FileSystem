@@ -221,8 +221,9 @@ void FileSystem::createTable()
 
             strcpy(tmpTI.tableName, tableName.c_str());
             setTableColumnNames(tmpTI.tableColumns, tmpTI.tableNames);
-            tmpTI.tablePosition = getEmptyDataBlockPosition();//check
+            tmpTI.tablePosition = getEmptyDataBlockPosition();
             tmpTI.size = loadedSuperBlock.dataBlockSize;
+            tmpTI.usedTableSpace = true;
 
             loadedDB.open(loadedDBName, std::ios::in | std::ios::out | std::ios::binary | std::ios::ate);
             loadedDB.seekp(indexPosition);
@@ -268,7 +269,7 @@ void FileSystem::dropTable()
             loadedDB.seekp(tempIndexPosition);
             loadedDB.write(reinterpret_cast<const char *>(&tempIndex), sizeof(tableIndex));
             loadedDB.close();
-            std::cout << "Data deleted successfully\n";
+            std::cout << "Table deleted successfully\n";
             return;
         }
         loadedDB.read(reinterpret_cast<char *>(&tempIndex), sizeof(tableIndex));
@@ -292,10 +293,7 @@ void FileSystem::insertData()
     tableIndex TI;
 
     if (tablePosition == 0)
-    {
-        std::cout << "Data table could not be found\n\n";
         return;
-    }
 
     loadedDB.open(loadedDBName, std::ios::in | std::ios::binary);
 
@@ -304,7 +302,7 @@ void FileSystem::insertData()
         std::cout << "Database file could not be found!\n\n";
         return;
     }
-
+    loadedDB.seekg(tablePosition);
     loadedDB.read(reinterpret_cast<char *>(&TI), sizeof(tableIndex));
     loadedDB.close();
 
@@ -318,7 +316,7 @@ void FileSystem::insertData()
         if (TI.tableColumns[i] == 0)
             break;
 
-        if ((TI.tableColumns[i] & 0b00000111) == 0b00000001) // int
+        if ((TI.tableColumns[i] & 0b00000111) == 0b00000011) // int
         {
             std::cout << "Type in the value of: " << TI.tableNames[i] << std::endl;
             std::cin >> valor1;
@@ -328,7 +326,7 @@ void FileSystem::insertData()
                 data.push_back(valor1 << j);
             }
         }
-        else if ((TI.tableColumns[i] & 0b00000111) == 0b00000011) // double
+        else if ((TI.tableColumns[i] & 0b00000111) == 0b00000101) // double
         {
             std::cout << "Type in the value of: " << TI.tableNames[i] << std::endl;
             std::cin >> valor1;
@@ -338,7 +336,7 @@ void FileSystem::insertData()
                 data.push_back(valor1 << j);
             }
         }
-        else if ((TI.tableColumns[i] & 0b00000111) == 0b00000101) // char
+        else if ((TI.tableColumns[i] & 0b00000111) == 0b00000111) // char
         {
             std::string valor3;
             std::cout << "Type in the value of: " << TI.tableNames[i] << std::endl;
@@ -496,8 +494,12 @@ void FileSystem::setTableColumnNames(uint32_t tableColumns[], char tableNames[][
         std::cin >> dataType;
         if (dataType == 0)
             break;
-        dataType <<= 1;
-        dataType |= 1;
+        else if (dataType == 1)
+            dataType = 0b00000011;
+        else if (dataType == 2)
+            dataType = 0b00000101;
+        else if (dataType == 3)
+            dataType = 0b00000111;
 
         if (dataType == 0b00000111)
         {
