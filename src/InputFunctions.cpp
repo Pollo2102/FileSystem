@@ -11,12 +11,12 @@ std::vector<std::string> InputFunctions::inputCommand()
 
     std::vector<std::string> args;
 
-    std::cout << "Type in your command: \n";
+    //std::cout << "Type in your command: \n";
 
     std::cin.getline(commandString, 200);
 
     char *argumentsTemp = new char;
-    argumentsTemp = strtok(commandString, " ");
+    argumentsTemp = strtok(commandString, " ,=");
     printf("%s\n", argumentsTemp);
 
     std::string tempString;

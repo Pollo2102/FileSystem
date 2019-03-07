@@ -1,4 +1,5 @@
 #include "FileSystem.h"
+#include "InputFunctions.h"
 
 #include <fstream>
 #include <iostream>
@@ -19,6 +20,8 @@ static superBlock loadedSuperBlock;
 static blockGroupDescriptorTable loadedBGDT;
 static std::fstream loadedDB;
 static std::string loadedDBName;
+
+InputFunctions IF;
 
 FileSystem::FileSystem()
 {
@@ -241,12 +244,11 @@ void FileSystem::createTable()
     {
         std::cout << "Database not loaded\n\n";
     }
-    
 }
 
 void FileSystem::dropTable()
 {
-    char tempTableName[64] = {0};    
+    char tempTableName[64] = {0};
     std::cout << "Type the name of the table you wish to delete.\n";
     std::cin >> tempTableName;
     tableIndex tempIndex;
@@ -356,16 +358,43 @@ void FileSystem::insertData()
 
 void FileSystem::deleteData()
 {
-    std::cout << "Not yet implemented.\n\n\n";
+    std::string tableName;
+    std::vector<std::string> tableColumns;
+    std::vector<std::string> condition;
+    tableIndex TI;
+
+    defineSelectVariables(tableName, tableColumns, condition);
+
+    if (!findIndex(tableName, TI))
+    {
+        std::cout << "Table could not be found\n\n";
+        return;
+    }
+
+    deleteRegister(TI, tableColumns, condition);
 }
 
 void FileSystem::updateData()
 {
-    std::cout << "Not yet implemented.\n\n\n";   
+    std::cout << "Not yet implemented.\n\n\n";
 }
 
 void FileSystem::selectData()
 {
+    std::string tableName;
+    std::vector<std::string> tableColumns;
+    std::vector<std::string> condition;
+    tableIndex TI;
+
+    defineSelectVariables(tableName, tableColumns, condition);
+
+    if (!findIndex(tableName, TI))
+    {
+        std::cout << "Table could not be found\n\n";
+        return;
+    }
+
+    printData(TI, tableColumns, condition);
 }
 
 void FileSystem::mainMenu()
@@ -386,56 +415,55 @@ void FileSystem::mainMenu()
         std::cout << "8 - Select Data\n";
         std::cout << "9 - Exit\n\n";
         std::cout << "Type the number of the command you wish to execute: \n";
-        
+
         std::cin >> option;
 
         switch (option)
         {
-            case 0:
-                createDatabase();
-                break;
-            
-            case 1:
-                dropDatabase();
-                break;
+        case 0:
+            createDatabase();
+            break;
 
-            case 2:
-                loadDatabase();
-                break;
+        case 1:
+            dropDatabase();
+            break;
 
-            case 3:
-                createTable();
-                break;
+        case 2:
+            loadDatabase();
+            break;
 
-            case 4:
-                dropTable();
-                break;
+        case 3:
+            createTable();
+            break;
 
-            case 5:
-                insertData();
-                break;
+        case 4:
+            dropTable();
+            break;
 
-            case 6:
-                deleteData();
-                break;
+        case 5:
+            insertData();
+            break;
 
-            case 7:
-                updateData();
-                break;     
+        case 6:
+            deleteData();
+            break;
 
-            case 8:
-                selectData();
-                break;
+        case 7:
+            updateData();
+            break;
 
-            case 9:
-                return;
-        
-            default:
-                std::cout << "Invalid command\n\n";
-                break;
+        case 8:
+            selectData();
+            break;
+
+        case 9:
+            return;
+
+        default:
+            std::cout << "Invalid command\n\n";
+            break;
         }
     }
-
 }
 
 //===============================================================
@@ -655,10 +683,10 @@ void FileSystem::writeDataIntoTable(std::vector<char> &tableData, uint64_t table
         std::cout << "Error while trying to access the database file.\n\n";
         return;
     }
-    
+
     uint64_t tablePos = tablePosition;
     loadedDB.seekp(tablePosition);
-    std::vector<char> temp(tableData.size());    
+    std::vector<char> temp(tableData.size());
     uint32_t spaceLeft = loadedSuperBlock.dataBlockSize - 4;
     uint8_t usedReg = 0;
 
@@ -682,7 +710,7 @@ void FileSystem::writeDataIntoTable(std::vector<char> &tableData, uint64_t table
                     loadedDB.seekp(-1, std::ios::cur);
                     loadedDB.write(reinterpret_cast<const char *>(&usedReg), sizeof(char));
                 }
-                for(size_t i = 0; i < tableData.size(); i++)
+                for (size_t i = 0; i < tableData.size(); i++)
                 {
                     loadedDB.write(reinterpret_cast<const char *>(&tableData.at(i)), sizeof(char));
                 }
@@ -707,12 +735,12 @@ void FileSystem::writeDataIntoTable(std::vector<char> &tableData, uint64_t table
             {
                 if (spaceLeft != 0)
                 {
-                    for(size_t i = 0; i < spaceLeft; i++)
+                    for (size_t i = 0; i < spaceLeft; i++)
                     {
                         loadedDB.write(reinterpret_cast<const char *>(&tableData.at(i)), sizeof(char));
                         spaceLeft--;
                     }
-                    for(size_t i = 0; i < spaceLeft; i++)
+                    for (size_t i = 0; i < spaceLeft; i++)
                     {
                         tableData.erase(tableData.begin());
                     }
@@ -733,6 +761,206 @@ void FileSystem::writeDataIntoTable(std::vector<char> &tableData, uint64_t table
                 loadedDB.close();
                 writeDataIntoTable(tableData, searchAddress, tableData.size(), rSpaceLeft, 0);
             }
-        }        
+        }
     }
+}
+
+void FileSystem::defineSelectVariables(std::string &tableName, std::vector<std::string> &tableColumns, std::vector<std::string> &condition)
+{
+    std::cout << "Insert the name of the table you wish to access: \n";
+    std::cin >> tableName;
+
+    std::cout << "Insert the name of the columns you wish to access: \n";
+    tableColumns = IF.inputCommand();
+
+    std::cout << "Insert the condition of your select: \n";
+    condition = IF.inputCommand();
+}
+
+bool FileSystem::findIndex(std::string tableName, tableIndex &TI)
+{
+    tableIndex tempIndex;
+
+    loadedDB.open(loadedDBName, std::ios::in | std::ios::binary);
+    loadedDB.seekg(loadedBGDT.first_index);
+    loadedDB.read(reinterpret_cast<char *>(&tempIndex), sizeof(tableIndex));
+
+    uint8_t tableCount = 1;
+
+    while (tableCount != 100)
+    {
+        if ((!strcmp(tempIndex.tableName, tableName.c_str())) && (tempIndex.usedTableSpace == true))
+        {
+            loadedDB.close();
+            TI = tempIndex;
+            return true;
+        }
+        loadedDB.read(reinterpret_cast<char *>(&tempIndex), sizeof(tableIndex));
+        tableCount++;
+    }
+    loadedDB.close();
+    std::cout << "Table not found\n";
+    return false;
+}
+
+void FileSystem::printData(tableIndex TI, std::vector<std::string> tableColumns, std::vector<std::string> condition)
+{
+    bool endOfTable = false;
+
+    loadedDB.open(loadedDBName, std::ios::in | std::ios::binary);
+
+    if (!loadedDB)
+    {
+        std::cout << "Database file not loaded.\n\n";
+        return;
+    }
+
+    std::string dataCache;
+
+    bool usedRegister = false;
+    int dataInt;
+    double dataDouble;
+    std::string dataChar;
+    uint16_t blockLeft = loadedSuperBlock.dataBlockSize - 4;
+    uint16_t registerSize = 0;
+
+    loadedDB.seekg(TI.tablePosition);
+    loadedDB.read(reinterpret_cast<char *>(&usedRegister), sizeof(bool));
+
+    while (!endOfTable)
+    {
+        for (size_t i = 0; i < 100; i++)
+        {
+            if ((TI.tableColumns[i] & 0b00000111) == 0b00000011)
+                break;
+            else if ((TI.tableColumns[i] & 0b00000111) == 0b00000011) //int
+            {
+                loadedDB.read(reinterpret_cast<char *>(&dataInt), sizeof(int));
+                dataCache += std::to_string(dataInt) + " | ";
+                blockLeft -= 4;
+            }
+            else if ((TI.tableColumns[i] & 0b00000111) == 0b00000101) //double
+            {
+                loadedDB.read(reinterpret_cast<char *>(&dataDouble), sizeof(double));
+                dataCache += std::to_string(dataInt) + " | ";
+                blockLeft -= 8;
+            }
+            else if ((TI.tableColumns[i] & 0b00000111) == 0b00000111) //char
+            {
+                for (size_t i = 0; i < (TI.tableColumns[i] >> 8); i++)
+                {
+                    loadedDB.read(reinterpret_cast<char *>(&dataChar), sizeof(char));
+                }
+                dataCache += (dataChar + " | ");
+                dataCache.clear();
+                blockLeft -= (TI.tableColumns[i] >> 8);
+            }
+        }
+        std::cout << dataCache << std::endl;
+        if (registerSize == 0)
+            registerSize = loadedSuperBlock.dataBlockSize - blockLeft - 4;
+
+        loadedDB.read(reinterpret_cast<char *>(&usedRegister), sizeof(bool));
+
+        if (!usedRegister)
+            loadedDB.seekg(registerSize, std::ios::cur);
+    }
+    loadedDB.close();
+}
+
+void FileSystem::deleteRegister(tableIndex TI, std::vector<std::string> tableColumns, std::vector<std::string> condition)
+{
+    bool endOfTable = false;
+
+    loadedDB.open(loadedDBName, std::ios::in | std::ios::binary);
+
+    if (!loadedDB)
+    {
+        std::cout << "Database file not loaded.\n\n";
+        return;
+    }
+
+    std::string dataCache;
+
+    bool usedRegister = false;
+    int dataInt;
+    double dataDouble;
+    std::string dataChar;
+    uint16_t blockLeft = loadedSuperBlock.dataBlockSize - 4;
+    uint16_t registerSize = 0;
+
+    uint64_t lastPosition = 0;
+
+    loadedDB.seekg(TI.tablePosition);
+    loadedDB.read(reinterpret_cast<char *>(&usedRegister), sizeof(bool));
+    lastPosition = loadedDB.tellg();
+
+    bool notUsed = false;
+
+    while (!endOfTable)
+    {
+        for (size_t i = 0; i < 100; i++)
+        {
+            if ((TI.tableColumns[i] & 0b00000111) == 0b00000011)
+                break;
+            else if ((TI.tableColumns[i] & 0b00000111) == 0b00000011) //int
+            {
+                loadedDB.read(reinterpret_cast<char *>(&dataInt), sizeof(int));
+                if (!strcmp(TI.tableNames[i], condition.at(0).c_str()) && (!strcmp(std::to_string(dataInt).c_str(), condition.at(1).c_str())))
+                {
+                    loadedDB.close();
+                    loadedDB.open(loadedDBName, std::ios::in | std::ios::out | std::ios::binary);
+                    loadedDB.seekp(lastPosition);
+                    loadedDB.write(reinterpret_cast<const char *>(&notUsed), sizeof(bool));
+                    loadedDB.close();
+                    return;
+                }
+                dataCache += std::to_string(dataInt) + " | ";
+                blockLeft -= 4;
+            }
+            else if ((TI.tableColumns[i] & 0b00000111) == 0b00000101) //double
+            {
+                loadedDB.read(reinterpret_cast<char *>(&dataDouble), sizeof(double));
+                if (!strcmp(TI.tableNames[i], condition.at(0).c_str()) && (!strcmp(std::to_string(dataDouble).c_str(), condition.at(1).c_str())))
+                {
+                    loadedDB.close();
+                    loadedDB.open(loadedDBName, std::ios::in | std::ios::out | std::ios::binary);
+                    loadedDB.seekp(lastPosition);
+                    loadedDB.write(reinterpret_cast<const char *>(&notUsed), sizeof(bool));
+                    loadedDB.close();
+                    return;
+                }
+                dataCache += std::to_string(dataInt) + " | ";
+                blockLeft -= 8;
+            }
+            else if ((TI.tableColumns[i] & 0b00000111) == 0b00000111) //char
+            {
+                for (size_t i = 0; i < (TI.tableColumns[i] >> 8); i++)
+                {
+                    loadedDB.read(reinterpret_cast<char *>(&dataChar), sizeof(char));
+                }
+                if (!strcmp(TI.tableNames[i], condition.at(0).c_str()) && (!strcmp(dataCache.c_str(), condition.at(1).c_str())))
+                {
+                    loadedDB.close();
+                    loadedDB.open(loadedDBName, std::ios::in | std::ios::out | std::ios::binary);
+                    loadedDB.seekp(lastPosition);
+                    loadedDB.write(reinterpret_cast<const char *>(&notUsed), sizeof(bool));
+                    loadedDB.close();
+                    return;
+                }
+                dataCache += (dataChar + " | ");
+                dataCache.clear();
+                blockLeft -= (TI.tableColumns[i] >> 8);
+            }
+        }
+        if (registerSize == 0)
+            registerSize = loadedSuperBlock.dataBlockSize - blockLeft - 4;
+
+        lastPosition = loadedDB.tellg();
+        loadedDB.read(reinterpret_cast<char *>(&usedRegister), sizeof(bool));
+
+        if (!usedRegister)
+            loadedDB.seekg(registerSize, std::ios::cur);
+    }
+    loadedDB.close();
 }

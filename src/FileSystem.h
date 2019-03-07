@@ -9,14 +9,14 @@
 
 class FileSystem
 {
-public:
+  public:
     FileSystem();
     ~FileSystem();
 
     void createDatabase();
     void dropDatabase();
     void loadDatabase();
-    
+
     void createTable();
     void dropTable();
 
@@ -33,12 +33,16 @@ public:
     uint64_t getEmptyDataBlockPosition();
     void deleteDatablockPointers(uint32_t dataBlockPosition);
     uint64_t findTable(std::string tableName);
+    bool findIndex(std::string tableName, tableIndex &TI);
     void writeDataIntoTable(std::vector<char> &tableData, uint64_t tablePosition, uint16_t dataSize, uint16_t readSpaceLeft, bool writePending);
 
+    void defineSelectVariables(std::string &tableName, std::vector<std::string> &tableColumns, std::vector<std::string> &condition);
+    void printData(tableIndex TI, std::vector<std::string> tableColumns, std::vector<std::string> condition);
+
+    void deleteRegister(tableIndex TI, std::vector<std::string> tableColumns, std::vector<std::string> condition);
+
     void mainMenu();
-
 };
-
 
 /*
 This FileSystem is created with the scope of 
