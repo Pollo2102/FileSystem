@@ -935,7 +935,7 @@ void FileSystem::deleteRegister(tableIndex TI, std::vector<std::string> tableCol
                 {
                     loadedDB.read(reinterpret_cast<char *>(&dataChar), sizeof(char));
                 }
-                if (!strcmp(TI.tableNames[i], condition.at(0).c_str()) && (!strcmp(dataCache.c_str(), condition.at(1).c_str())))
+                if (!strcmp(TI.tableNames[i], condition.at(0).c_str()) && (!strcmp(dataChar.c_str(), condition.at(1).c_str())))
                 {
                     loadedDB.close();
                     loadedDB.open(loadedDBName, std::ios::in | std::ios::out | std::ios::binary);
