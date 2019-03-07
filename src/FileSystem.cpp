@@ -880,8 +880,6 @@ void FileSystem::deleteRegister(tableIndex TI, std::vector<std::string> tableCol
         return;
     }
 
-    std::string dataCache;
-
     bool usedRegister = false;
     int dataInt;
     double dataDouble;
@@ -915,7 +913,6 @@ void FileSystem::deleteRegister(tableIndex TI, std::vector<std::string> tableCol
                     loadedDB.close();
                     return;
                 }
-                dataCache += std::to_string(dataInt) + " | ";
                 blockLeft -= 4;
             }
             else if ((TI.tableColumns[i] & 0b00000111) == 0b00000101) //double
@@ -930,7 +927,6 @@ void FileSystem::deleteRegister(tableIndex TI, std::vector<std::string> tableCol
                     loadedDB.close();
                     return;
                 }
-                dataCache += std::to_string(dataInt) + " | ";
                 blockLeft -= 8;
             }
             else if ((TI.tableColumns[i] & 0b00000111) == 0b00000111) //char
@@ -948,8 +944,6 @@ void FileSystem::deleteRegister(tableIndex TI, std::vector<std::string> tableCol
                     loadedDB.close();
                     return;
                 }
-                dataCache += (dataChar + " | ");
-                dataCache.clear();
                 blockLeft -= (TI.tableColumns[i] >> 8);
             }
         }
