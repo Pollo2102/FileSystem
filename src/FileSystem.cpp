@@ -637,8 +637,8 @@ uint64_t FileSystem::findTable(std::string tableName)
         }
         else
         {
-            loadedDB.read(reinterpret_cast<char *>(&TI), sizeof(tableIndex));
             tablePosition = loadedDB.tellg();
+            loadedDB.read(reinterpret_cast<char *>(&TI), sizeof(tableIndex));
         }
     }
     std::cout << "Table was not found!\n\n";
